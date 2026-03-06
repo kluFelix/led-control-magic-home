@@ -1,0 +1,9 @@
+.direnv
+digest.txt
+
+/bin/
+*.exe
+*.test
+*.prof
+vendor/
+

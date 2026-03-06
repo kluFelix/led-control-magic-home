@@ -9,6 +9,21 @@ import (
 	"time"
 )
 
+func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next(w, r)
+	}
+}
+
 type RGB struct {
 	R int `json:"r"`
 	G int `json:"g"`
@@ -143,7 +158,7 @@ func handleLED(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/api/led", handleLED)
+	http.HandleFunc("/api/led", corsMiddleware(handleLED))
 
 	log.Println("LED server starting on :3000")
 	if err := http.ListenAndServe(":3000", nil); err != nil {

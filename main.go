@@ -212,6 +212,9 @@ func handleLED(w http.ResponseWriter, r *http.Request) {
 		if err := cmdPowerOff(req.Address); err != nil {
 			errors = append(errors, fmt.Sprintf("power off failed: %v", err))
 		}
+		state := getState()
+		state.Value = 0
+		setState(state)
 	}
 
 	if req.Color != nil {

@@ -7,3 +7,4 @@ digest.txt
 *.prof
 vendor/
 
+led-server

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a1a2e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LED Control">
+    <title>LED Controller</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>LED Controller</h1>
+        
+        <div class="ip-input-container">
+            <label for="ip-address">LED IP Address:</label>
+            <input type="text" id="ip-address" value="192.168.112.189">
+        </div>
+
+        <div class="color-section">
+            <h2>Select Color</h2>
+            <div class="color-picker-wrapper">
+                <canvas id="color-canvas"></canvas>
+            </div>
+            <div class="brightness-section">
+                <label for="brightness-value">Brightness: <span id="brightness-display">0</span>%</label>
+                <input type="range" id="brightness-value" min="0" max="100" value="0">
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                        console.log('Service Worker registered:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

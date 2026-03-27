@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED Controller - Offline</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>LED Controller</h1>
+        
+        <div class="status-container" style="margin-top: 40px;">
+            <div class="status-indicator error"></div>
+            <span class="status-text">You are currently offline</span>
+        </div>
+
+        <p style="text-align: center; color: rgba(255, 255, 255, 0.7); margin-top: 20px; font-size: 0.9rem;">
+            Please reconnect to your network to control the LED device.
+        </p>
+
+        <button onclick="location.reload()" class="control-btn btn-color" style="margin-top: 30px;">
+            Try Again
+        </button>
+    </div>
+</body>
+</html>

@@ -1,13 +1,49 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"sync"
 	"time"
 )
+
+//go:embed web/index.html web/style.css web/script.js web/manifest.json web/sw.js web/offline.html web/icons/*
+var staticFiles embed.FS
+
+type State struct {
+	Hue        float64 `json:"hue"`
+	Saturation float64 `json:"saturation"`
+	Value      float64 `json:"value"`
+	IPAddress  string  `json:"ipAddress"`
+}
+
+var (
+	mu           sync.RWMutex
+	currentState = State{
+		Hue:        0,
+		Saturation: 0,
+		Value:      0,
+		IPAddress:  "192.168.112.189",
+	}
+)
+
+func getState() State {
+	mu.RLock()
+	defer mu.RUnlock()
+	return currentState
+}
+
+func setState(state State) {
+	mu.Lock()
+	defer mu.Unlock()
+	currentState = state
+}
 
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -35,6 +71,50 @@ type Request struct {
 	On         *bool  `json:"on"`
 	Color      *RGB   `json:"color"`
 	Brightness *int   `json:"brightness"`
+}
+
+func rgbToHsl(r, g, b int) (h, s, v float64) {
+	max := r
+	if g > max {
+		max = g
+	}
+	if b > max {
+		max = b
+	}
+
+	min := r
+	if g < min {
+		min = g
+	}
+	if b < min {
+		min = b
+	}
+
+	v = float64(max) / 255.0
+
+	if max == min {
+		h = 0
+		s = 0
+		return
+	}
+
+	d := float64(max - min)
+	s = d / float64(max)
+
+	switch max {
+	case r:
+		h = float64(g-b) / d
+		if g < b {
+			h += 6
+		}
+	case g:
+		h = float64(b-r)/d + 2
+	case b:
+		h = float64(r-g)/d + 4
+	}
+
+	h /= 6
+	return h * 360, s * 100, v
 }
 
 type Response struct {
@@ -155,13 +235,124 @@ func handleLED(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(Response{Status: "success", Message: "Commands sent"})
+
+	if req.Color != nil {
+		hue, sat, val := rgbToHsl(req.Color.R, req.Color.G, req.Color.B)
+		setState(State{
+			Hue:        hue,
+			Saturation: sat,
+			Value:      val,
+			IPAddress:  req.Address,
+		})
+	}
+}
+
+func handleStateGET(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(Response{Status: "error", Message: "Method not allowed"})
+		return
+	}
+
+	state := getState()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(state)
+}
+
+func handleStatePOST(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(Response{Status: "error", Message: "Method not allowed"})
+		return
+	}
+
+	var state State
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&state); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(Response{Status: "error", Message: "Invalid JSON"})
+		return
+	}
+
+	if state.IPAddress != "" {
+		setState(state)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(Response{Status: "success", Message: "State updated"})
+}
+
+func serveStaticFiles(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	if path == "/" {
+		path = "/index.html"
+	}
+
+	filePath := "web" + path
+
+	file, err := staticFiles.Open(filePath)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	contentType := "application/octet-stream"
+	switch {
+	case path == "/index.html":
+		contentType = "text/html; charset=utf-8"
+	case path == "/style.css":
+		contentType = "text/css; charset=utf-8"
+	case path == "/script.js":
+		contentType = "application/javascript; charset=utf-8"
+	case path == "/manifest.json":
+		contentType = "application/manifest+json"
+	case path == "/sw.js":
+		contentType = "application/javascript; charset=utf-8"
+	case path == "/offline.html":
+		contentType = "text/html; charset=utf-8"
+	case path == "/icons/128.png":
+		contentType = "image/png"
+	case path == "/icons/512.png":
+		contentType = "image/png"
+	}
+
+	w.Header().Set("Content-Type", contentType)
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
 
 func main() {
 	http.HandleFunc("/api/led", corsMiddleware(handleLED))
+	http.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			handleStateGET(w, r)
+		} else if r.Method == http.MethodPost {
+			handleStatePOST(w, r)
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(Response{Status: "error", Message: "Method not allowed"})
+		}
+	})
+	http.HandleFunc("/", serveStaticFiles)
 
-	log.Println("LED server starting on :3000")
-	if err := http.ListenAndServe(":3000", nil); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+
+	log.Printf("LED server starting on :%s", port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

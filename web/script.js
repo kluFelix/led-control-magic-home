@@ -76,12 +76,15 @@ function drawColorPicker() {
     const width = colorCanvas.width;
     const height = colorCanvas.height;
 
+    const pickerMinDisplay = 0.4; // make the picker 50% brighter than the led
+    const displayVal = pickerMinDisplay + (currentVal * (1 - pickerMinDisplay)) / 100;
+
     for (let x = 0; x < width; x++) {
         for (let y = 0; y < height; y++) {
             const h = (x / width) * 360;
             const normalizedY = y / height;
             const sat = 1 - Math.pow(0.01, 1 - normalizedY);
-            const v = currentVal / 100;
+            const v = displayVal;
             const rgb = hslToRgb(h, sat, v);
             ctx.fillStyle = `rgb(${Math.round(rgb.r * 255)}, ${Math.round(rgb.g * 255)}, ${Math.round(rgb.b * 255)})`;
             ctx.fillRect(x, y, 1, 1);

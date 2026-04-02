@@ -8,3 +8,5 @@ digest.txt
 vendor/
 led-server
 result
+
+.envrc

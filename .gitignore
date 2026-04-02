@@ -6,5 +6,5 @@ digest.txt
 *.test
 *.prof
 vendor/
-
 led-server
+result

@@ -335,6 +335,25 @@ func serveStaticFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "5002"
+	}
+
+	bindAddr := os.Getenv("BIND_ADDRESS")
+	if bindAddr == "" {
+		bindAddr = "127.0.0.1"
+	}
+
+	state := getState()
+	if state.IPAddress != "" && state.Value == 0 {
+		if err := cmdPowerOff(state.IPAddress); err != nil {
+			log.Printf("Warning: Failed to send power off on startup: %v", err)
+		} else {
+			log.Printf("Sent power off command to %s on startup", state.IPAddress)
+		}
+	}
+
 	http.HandleFunc("/api/led", corsMiddleware(handleLED))
 	http.HandleFunc("/api/state", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
@@ -348,16 +367,6 @@ func main() {
 		}
 	})
 	http.HandleFunc("/", serveStaticFiles)
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "5002"
-	}
-
-	bindAddr := os.Getenv("BIND_ADDRESS")
-	if bindAddr == "" {
-		bindAddr = "127.0.0.1"
-	}
 
 	addr := bindAddr + ":" + port
 	log.Printf("LED server starting on %s", addr)

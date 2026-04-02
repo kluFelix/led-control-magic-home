@@ -351,11 +351,17 @@ func main() {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "3000"
+		port = "5002"
 	}
 
-	log.Printf("LED server starting on :%s", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	bindAddr := os.Getenv("BIND_ADDRESS")
+	if bindAddr == "" {
+		bindAddr = "127.0.0.1"
+	}
+
+	addr := bindAddr + ":" + port
+	log.Printf("LED server starting on %s", addr)
+	if err := http.ListenAndServe(addr, nil); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
